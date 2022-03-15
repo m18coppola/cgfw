@@ -1,4 +1,4 @@
-#include <util/datastructures.h>
+#include <util/data_structures.h>
 
 struct LinkedList *
 ds_LinkedList_init(void)
@@ -62,6 +62,7 @@ ds_LinkedList_add(struct LinkedList *list, int key, size_t data_size)
 		p = &(*p)->next;
 	}
 	(*p) = new_node;
+	list->size++;
 
 	return 0;
 }
@@ -82,6 +83,7 @@ ds_LinkedList_remove(struct LinkedList *list, int key)
 	}
 	old_node = (*p);
 	(*p) = (*p)->next;
+	list->size--;
 
 	free(old_node->data);
 	free(old_node);
@@ -114,4 +116,78 @@ ds_LinkedList_print(struct LinkedList *list)
 		p = &(*p)->next;
 	}
 	printf("\n");
+}
+
+/* ARRAY QUEUE */
+struct ArrayQueue *
+ds_ArrayQueue_init(int capacity, size_t element_size)
+{
+	struct ArrayQueue *new_queue = NULL;
+	new_queue = malloc(sizeof(struct ArrayQueue));
+
+	new_queue->capacity = capacity;
+	new_queue->size = 0;
+	new_queue->head = 0;
+	new_queue->tail = capacity - 1;
+	new_queue->array = malloc(element_size * capacity);
+	new_queue->element_size = element_size;
+	
+	return new_queue;
+}
+
+void
+ds_ArrayQueue_free(struct ArrayQueue **queue_p)
+{
+	struct ArrayQueue *queue = *queue_p;
+	free(queue->array);
+	free(queue);
+	*queue_p = NULL;
+}
+
+int
+ds_ArrayQueue_isEmpty(struct ArrayQueue *queue)
+{
+	return queue->size == 0;
+}
+
+int
+ds_ArrayQueue_isFull(struct ArrayQueue *queue)
+{
+	return queue->size == queue->capacity;
+}
+
+void
+ds_ArrayQueue_enqueue(struct ArrayQueue *queue)
+{
+	if (ds_ArrayQueue_isFull(queue)) {
+		return;
+	}
+	queue->tail = (queue->tail + 1) % queue->capacity;
+	queue->size++;
+}
+
+void *
+ds_ArrayQueue_peekTail(struct ArrayQueue *queue)
+{
+	if (ds_ArrayQueue_isEmpty(queue)) return NULL;
+	return queue->array + (queue->element_size * queue->tail);
+}
+
+void *
+ds_ArrayQueue_peekHead(struct ArrayQueue *queue)
+{
+	if (ds_ArrayQueue_isEmpty(queue)) return NULL;
+	return queue->array + (queue->element_size * queue->head);
+}
+
+void *
+ds_ArrayQueue_dequeue(struct ArrayQueue *queue)
+{
+	if (ds_ArrayQueue_isEmpty(queue)) {
+		return NULL;
+	}
+	void *addr = queue->array + (queue->element_size * queue->head);
+	queue->head = (queue->head + 1) % queue->capacity;
+	queue->size--;
+	return addr;
 }
