@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <util/data_structures.h>
 
-#define MAX_ENTITIES 5000
+#define MAX_ENTITIES 10
 
 typedef unsigned int EntityID;
 

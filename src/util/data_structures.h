@@ -28,7 +28,7 @@ void ds_LinkedList_print(struct LinkedList *list);
 
 /* ARRAY QUEUE */
 struct ArrayQueue {
-	void *array;
+	unsigned int *array;
 	int head;
 	int tail;
 	int size;
