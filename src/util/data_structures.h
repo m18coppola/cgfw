@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define CASTED_DEREF(TYPE, POINTER)	*((TYPE *)POINTER)
+
 typedef struct node_ {
 	int key;
 	void *data;

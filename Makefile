@@ -25,6 +25,10 @@ component_manager.o: src/ecs/component_manager.c
 	$(CC) src/ecs/component_manager.c $(LIBS) $(FLAGS) $(INCLUDE) -c -o build/objects/component_manager.o
 
 run: main
+	$(info )
+	$(info ___STARTING EXECUTION___)
+	$(info ========================)
+	$(info )
 	./build/app.bin
 
 clean:

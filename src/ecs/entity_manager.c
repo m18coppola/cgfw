@@ -10,7 +10,8 @@ ecs_EntityManager_init(void)
 
 	for (int i = 0; i < MAX_ENTITIES; i++) {
 		ds_ArrayQueue_enqueue(em->entity_ID_queue);
-		*((unsigned int *)ds_ArrayQueue_peekTail(em->entity_ID_queue)) = i;
+		//*((unsigned int *)ds_ArrayQueue_peekTail(em->entity_ID_queue)) = i;
+		CASTED_DEREF(EntityID, ds_ArrayQueue_peekTail(em->entity_ID_queue)) = i;
 	}
 
 	return em;
@@ -28,7 +29,7 @@ ecs_EntityManager_free(struct EntityManager **em_p)
 EntityID
 ecs_EntityManager_addEntity(struct EntityManager *em)
 {
-	EntityID newID = *((EntityID *)ds_ArrayQueue_dequeue(em->entity_ID_queue));
+	EntityID newID = CASTED_DEREF(EntityID, ds_ArrayQueue_dequeue(em->entity_ID_queue));
 	em->entity_count++;
 	return newID;
 }
@@ -38,7 +39,7 @@ ecs_EntityManager_removeEntity(struct EntityManager *em, EntityID id)
 {
 	em->component_mask_table[id] = 0;
 	ds_ArrayQueue_enqueue(em->entity_ID_queue);
-	*((EntityID *)ds_ArrayQueue_peekTail(em->entity_ID_queue)) = id;
+	CASTED_DEREF(EntityID, ds_ArrayQueue_peekTail(em->entity_ID_queue)) = id;
 	em->entity_count--;
 }
 
