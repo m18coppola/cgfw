@@ -49,6 +49,7 @@ ecs_ComponentArray_get(struct ComponentArray *ca, unsigned int eid)
 void
 ecs_ComponentArray_remove(struct ComponentArray *ca, unsigned int eid)
 {
+	//if (eid >= ca->capacity || ca->entity_index_map[eid] == -1) return;
 	char *origin = (char *)ca->array + ca->component_size * (ca->component_count - 1);
 	char *dest = (char *)ca->array + ca->component_size * (ca->entity_index_map[eid]);
 	size_t steps = ca->component_size / sizeof(char);
@@ -67,3 +68,74 @@ ecs_ComponentArray_remove(struct ComponentArray *ca, unsigned int eid)
 	ca->index_entity_map[ca->component_count - 1] = -1;
 	ca->component_count--;
 }
+
+struct ComponentManager *
+ecs_ComponentManager_init(void)
+{
+	struct ComponentManager *cm;
+	int i;
+	cm = malloc(sizeof(struct ComponentManager));
+	cm->current_id = 0;
+	for (i = 0; i < MAX_COMPONENTS; i++) {
+		cm->registered_components[i] = NULL;
+	}
+	return cm;
+}
+
+void
+ecs_ComponentManager_free(struct ComponentManager **cm_p)
+{
+	int i;
+	struct ComponentManager *cm;
+	cm = *cm_p;
+	for (i = 0; i < MAX_COMPONENTS; i++) {
+		if (cm->registered_components[i] != NULL) ecs_ComponentArray_free(&(cm->registered_components[i]));
+	}
+	free(*cm_p);
+	cm_p = NULL;
+}
+
+CID
+ecs_ComponentManager_registerComponent(struct ComponentManager *cm, size_t component_size, int capacity)
+{
+	CID newCID;
+	struct ComponentArray *ca;
+	newCID = cm->current_id++;
+	ca = ecs_ComponentArray_init(newCID, component_size, capacity);
+	cm->registered_components[newCID] = ca;
+	return newCID;
+}
+
+void
+ecs_ComponentManager_addComponentInstance(struct ComponentManager *cm, unsigned int eid, CID cid)
+{
+	ecs_ComponentArray_insert(cm->registered_components[cid], eid);
+}
+
+void
+ecs_ComponentManager_removeComponentInstance(struct ComponentManager *cm, unsigned int eid, CID cid)
+{
+	ecs_ComponentArray_remove(cm->registered_components[cid], eid);
+}
+
+void *
+ecs_ComponentManager_getComponentInstance(struct ComponentManager *cm, unsigned int eid, CID cid)
+{
+	return ecs_ComponentArray_get(cm->registered_components[cid], eid);
+}
+
+void
+ecs_ComponentManager_destroyEntity(struct ComponentManager *cm, unsigned int eid)
+{
+	struct ComponentArray **columns;
+	int i;
+
+	columns = cm->registered_components;
+	for (i = 0; i < MAX_COMPONENTS; i++) {
+		if (columns[i] != NULL)
+			ecs_ComponentArray_remove(columns[i], eid);
+	}
+}
+//TODO: just realized we have to update the component_mask_table when we
+// add/remove a component to a particular EID
+// maybe just do that in the coordinator. front end for mask handling on entity manager?

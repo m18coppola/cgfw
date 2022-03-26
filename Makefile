@@ -31,6 +31,15 @@ run: main
 	$(info )
 	./build/app.bin
 
+checkleaks: main
+	$(info )
+	$(info ___STARTING EXECUTION___)
+	$(info ____VALGRIND ENABLED____)
+	$(info ========================)
+	$(info )
+	valgrind ./build/app.bin --leak-check=full --track-origin=yes
+	
+
 clean:
 	rm build/objects/*.o
 	rm build/app.bin

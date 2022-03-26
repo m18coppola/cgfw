@@ -6,49 +6,52 @@
 int
 main (int argc, char *argv[])
 {
-	printf("Allocating a Component Array...\n");
-	struct ComponentArray *component_list;
-	component_list = ecs_ComponentArray_init((unsigned int)0, sizeof(long), 10);
+	struct ComponentManager *cm;
 
-	ecs_ComponentArray_insert(component_list, (unsigned int) 1);
-	ecs_ComponentArray_insert(component_list, (unsigned int) 2);
-	ecs_ComponentArray_insert(component_list, (unsigned int) 3);
-	*(long *)ecs_ComponentArray_get(component_list, (unsigned int) 1) = 111;
-	*(long *)ecs_ComponentArray_get(component_list, (unsigned int) 2) = 222;
-	*(long *)ecs_ComponentArray_get(component_list, (unsigned int) 3) = 333;
+	printf("init component manager...\n");
+	cm = ecs_ComponentManager_init();
 
-	for(int i = 0; i <= 10; i++) {
-		printf("%ld, ", *(long *)(component_list->array + (i * sizeof(long))));
-	}
-	printf("\n");
+	printf("creating 2 components (one is int, other is float pair)...\n");
+	CID floatpairCID;
+	struct FloatPair {
+		float x, y;
+	};
 
-	printf("removing key 2...\n");
-	ecs_ComponentArray_remove(component_list, (unsigned int)2);
+	CID singleintCID;
+	struct SingleInt {
+		int num;
+	};
 
-	for(int i = 0; i <= 10; i++) {
-		printf("%ld, ", *(long *)(component_list->array + (i * sizeof(long))));
-	}
-	printf("\n");
+	floatpairCID = ecs_ComponentManager_registerComponent(cm, sizeof(struct FloatPair), 10);
+	singleintCID = ecs_ComponentManager_registerComponent(cm, sizeof(struct SingleInt), 10);
 
+	unsigned int eid1 = 0;
+	unsigned int eid2 = 1;
+	unsigned int eid3 = 2;
 
-	printf("inserting 2 back in...\n");
-	ecs_ComponentArray_insert(component_list, (unsigned int) 2);
-	CASTED_DEREF(long, ecs_ComponentArray_get(component_list, (unsigned int) 2)) = 222;
+	printf("giving eid1 and eid2 a float pair...\n");
+	ecs_ComponentManager_addComponentInstance(cm, eid1, floatpairCID);
+	ecs_ComponentManager_addComponentInstance(cm, eid2, floatpairCID);
 
+	CASTED_DEREF(struct FloatPair, ecs_ComponentManager_getComponentInstance(cm, eid1, floatpairCID)).x = 1.1;
+	CASTED_DEREF(struct FloatPair, ecs_ComponentManager_getComponentInstance(cm, eid1, floatpairCID)).y = 1.2;
 
-	for(int i = 0; i <= 10; i++) {
-		printf("%ld, ", *(long *)(component_list->array + (i * sizeof(long))));
-	}
-	printf("\n");
-	printf("ensuring keys are mapped correctly...\n");
-	for(int i = 1; i <= 3; i++) {
-		printf("%ld, ", CASTED_DEREF(long, ecs_ComponentArray_get(component_list, (unsigned int) i)));
-	}
-	printf("\n");
+	CASTED_DEREF(struct FloatPair, ecs_ComponentManager_getComponentInstance(cm, eid2, floatpairCID)).x = 2.1;
+	CASTED_DEREF(struct FloatPair, ecs_ComponentManager_getComponentInstance(cm, eid2, floatpairCID)).y = 2.2;
 
+	printf("giving eid2 and eid3 a singleint...\n");
+	ecs_ComponentManager_addComponentInstance(cm, eid2, singleintCID);
+	ecs_ComponentManager_addComponentInstance(cm, eid3, singleintCID);
 
+	CASTED_DEREF(struct SingleInt, ecs_ComponentManager_getComponentInstance(cm, eid2, singleintCID)).num = 2;
+	CASTED_DEREF(struct SingleInt, ecs_ComponentManager_getComponentInstance(cm, eid3, singleintCID)).num = 3;
 
+	printf("detroying all components belonging to eid2...\n");
+	ecs_ComponentManager_destroyEntity(cm, eid2);
+	
+	printf("free component manager...\n");
+	ecs_ComponentManager_free(&cm);
 
-	printf("Releasing Component Array...\n");
-	ecs_ComponentArray_free(&component_list);
+	return 0;
+
 }
