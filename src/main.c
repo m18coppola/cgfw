@@ -1,57 +1,58 @@
 #include <stdio.h>
-#include <util/data_structures.h>
-#include <ecs/entity_manager.h>
-#include <ecs/component_manager.h>
+#include <ecs/ecs.h>
 
 int
 main (int argc, char *argv[])
 {
-	struct ComponentManager *cm;
+	printf("starting ECS...\n");
+	ecs_init();
+	printf("\tsuccess!\n");
 
-	printf("init component manager...\n");
-	cm = ecs_ComponentManager_init();
-
-	printf("creating 2 components (one is int, other is float pair)...\n");
-	CID floatpairCID;
-	struct FloatPair {
-		float x, y;
+	printf("registering int pair component...\n");
+	struct IntPair {
+		int x;
+		int y;
 	};
+	CID position = ecs_registerComponent(sizeof(struct IntPair));
+	printf("\tposition CID: %u\n", position);
 
-	CID singleintCID;
-	struct SingleInt {
-		int num;
-	};
 
-	floatpairCID = ecs_ComponentManager_registerComponent(cm, sizeof(struct FloatPair), 10);
-	singleintCID = ecs_ComponentManager_registerComponent(cm, sizeof(struct SingleInt), 10);
 
-	unsigned int eid1 = 0;
-	unsigned int eid2 = 1;
-	unsigned int eid3 = 2;
 
-	printf("giving eid1 and eid2 a float pair...\n");
-	ecs_ComponentManager_addComponentInstance(cm, eid1, floatpairCID);
-	ecs_ComponentManager_addComponentInstance(cm, eid2, floatpairCID);
+	printf("making 3 entites...\n");
+	EID my_entities[3];
+	for (int i = 0; i < 3; i++) {
+		my_entities[i] = ecs_makeEntity();
+		printf("\tregistered id: %u\n", my_entities[i]);
+	}
 
-	CASTED_DEREF(struct FloatPair, ecs_ComponentManager_getComponentInstance(cm, eid1, floatpairCID)).x = 1.1;
-	CASTED_DEREF(struct FloatPair, ecs_ComponentManager_getComponentInstance(cm, eid1, floatpairCID)).y = 1.2;
 
-	CASTED_DEREF(struct FloatPair, ecs_ComponentManager_getComponentInstance(cm, eid2, floatpairCID)).x = 2.1;
-	CASTED_DEREF(struct FloatPair, ecs_ComponentManager_getComponentInstance(cm, eid2, floatpairCID)).y = 2.2;
+	printf("giving each entity a int pair...\n");
+	for(int i = 0; i < 3; i++) {
+		struct IntPair *currIP;
+		currIP = (struct IntPair *)ecs_addComponentInstance(my_entities[i], position);
+		currIP->x = i + 1;
+		currIP->y = (i+1) * 2;
+	}
 
-	printf("giving eid2 and eid3 a singleint...\n");
-	ecs_ComponentManager_addComponentInstance(cm, eid2, singleintCID);
-	ecs_ComponentManager_addComponentInstance(cm, eid3, singleintCID);
+	printf("print content...\n");
+	for(int i = 0; i < 3; i++) {
+		struct IntPair *currIP;
+		currIP = (struct IntPair *)ecs_getComponentInstance(my_entities[i], position);
+		printf("ID: %u: %d, %d\n", my_entities[i], currIP->x, currIP->y);
+	}
 
-	CASTED_DEREF(struct SingleInt, ecs_ComponentManager_getComponentInstance(cm, eid2, singleintCID)).num = 2;
-	CASTED_DEREF(struct SingleInt, ecs_ComponentManager_getComponentInstance(cm, eid3, singleintCID)).num = 3;
 
-	printf("detroying all components belonging to eid2...\n");
-	ecs_ComponentManager_destroyEntity(cm, eid2);
-	
-	printf("free component manager...\n");
-	ecs_ComponentManager_free(&cm);
+	ecs_removeComponentInstance(my_entities[0], position);
+
+
+	printf("freeing entites...\n");
+	for (int i = 0; i < 3; i++) {
+		ecs_removeEntity(my_entities[i]);
+	}
+
+	printf("exiting ECS...\n");
+	ecs_exit();
 
 	return 0;
-
 }

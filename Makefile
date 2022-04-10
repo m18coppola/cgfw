@@ -4,7 +4,7 @@ CC = gcc
 INCLUDE = -I src/
 FLAGS=`sdl2-config --libs --cflags` -W -Wall -g
 LIBS= -lsoil2 -lGLEW -lGL -lm
-OBJS_NAMES = data_structures.o entity_manager.o component_manager.o
+OBJS_NAMES = data_structures.o ecs.o
 OBJS=$(patsubst %, build/objects/%, $(OBJS_NAMES))
 
 all: main
@@ -18,11 +18,8 @@ main.o: src/main.c
 data_structures.o: src/util/data_structures.c
 	$(CC) src/util/data_structures.c $(LIBS) $(FLAGS) $(INCLUDE) -c -o build/objects/data_structures.o
 
-entity_manager.o: src/ecs/entity_manager.c
-	$(CC) src/ecs/entity_manager.c $(LIBS) $(FLAGS) $(INCLUDE) -c -o build/objects/entity_manager.o
-
-component_manager.o: src/ecs/component_manager.c
-	$(CC) src/ecs/component_manager.c $(LIBS) $(FLAGS) $(INCLUDE) -c -o build/objects/component_manager.o
+ecs.o: src/ecs/ecs.c
+	$(CC) src/ecs/ecs.c $(LIBS) $(FLAGS) $(INCLUDE) -c -o build/objects/ecs.o
 
 run: main
 	$(info )
@@ -34,10 +31,18 @@ run: main
 checkleaks: main
 	$(info )
 	$(info ___STARTING EXECUTION___)
-	$(info ____VALGRIND ENABLED____)
+	$(info ___CHECKLEAKS ENABLED___)
 	$(info ========================)
 	$(info )
-	valgrind ./build/app.bin --leak-check=full --track-origin=yes
+	valgrind --leak-check=full --track-origins=yes ./build/app.bin
+
+checkcache: main
+	$(info )
+	$(info ___STARTING EXECUTION___)
+	$(info ___CHECKCACHE ENABLED___)
+	$(info ========================)
+	$(info )
+	valgrind --tool=cachegrind ./build/app.bin
 	
 
 clean:
