@@ -122,6 +122,7 @@ ecs_addComponentInstance(EID eid, CID cid)
 
 	/* update signature for entity */
 	entity_signatures[eid] |= (1 << cid);
+	*(EID *)ds_PackedArray_getElement(signature_ledger, eid) = entity_signatures[eid];
 
 	/* update systems' entity lists */
 	ecs_reindexSystems(ecs_getComponentSignature(cid));
@@ -221,6 +222,7 @@ ecs_indexSystem(struct System *s)
 {
 	int i;
 	struct PackedArray *component;
+	Signature entity_signature;
 
 	switch (s->hint) {
 	case SINGLE_COLUMN:
@@ -232,7 +234,8 @@ ecs_indexSystem(struct System *s)
 	default:
 		s->entity_count = 0;
 		for (i = 0; i < entity_count; i++) {
-			if ((((Signature *)signature_ledger->array)[i] & s->system_signature) == s->system_signature) {
+			entity_signature = ((Signature *)signature_ledger->array)[i];
+			if ((entity_signature & s->system_signature) == s->system_signature) {
 				s->query_results[s->entity_count++] = signature_ledger->index_key_map[i];
 			}
 		}
