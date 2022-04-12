@@ -197,7 +197,7 @@ ecs_registerSystem(CID *query, int query_size, void (*procedure)(EID))
 		s->query_results = malloc(sizeof(EID) * MAX_ENTITIES);
 	}
 
-	ecs_reindexSystems(s->system_signature);
+	ecs_indexSystem(s);
 
 	return new_sid;
 }
@@ -206,34 +206,36 @@ void
 ecs_reindexSystems(Signature dirty_components) {
 	SID sid;
 	struct System *s;
-	struct PackedArray *component;
-	int i;
-
-	printf("indexing triggered!\n");
-	printf("CID %u\n", dirty_components);
 
 	for (sid = 0; sid < system_count; sid++) {
 		s = registered_systems[sid];
-		printf("SID %u\n", s->system_signature);
 		if ((s->system_signature & dirty_components) == dirty_components) {
-			switch (s->hint) {
-			case SINGLE_COLUMN:
-				component = registered_components[ecs_getComponentID(s->system_signature)];
-				s->query_results = (EID *)component->index_key_map;
-				s->entity_count = component->element_count;
-				break;
-			case LEDGER:
-			default:
-				s->entity_count = 0;
-				for (i = 0; i < entity_count; i++) {
-					if ((((Signature *)signature_ledger->array)[i] & s->system_signature) == s->system_signature) {
-						s->query_results[s->entity_count++] = signature_ledger->index_key_map[i];
-					}
-				}
-				break;
-			}
-			printf("\tSystem indexed with %d results.\n", s->entity_count);
+			ecs_indexSystem(s);
 		}
+	}
+}
+
+void
+ecs_indexSystem(struct System *s)
+{
+	int i;
+	struct PackedArray *component;
+
+	switch (s->hint) {
+	case SINGLE_COLUMN:
+		component = registered_components[ecs_getComponentID(s->system_signature)];
+		s->query_results = (EID *)component->index_key_map;
+		s->entity_count = component->element_count;
+		break;
+	case LEDGER:
+	default:
+		s->entity_count = 0;
+		for (i = 0; i < entity_count; i++) {
+			if ((((Signature *)signature_ledger->array)[i] & s->system_signature) == s->system_signature) {
+				s->query_results[s->entity_count++] = signature_ledger->index_key_map[i];
+			}
+		}
+		break;
 	}
 }
 

@@ -37,6 +37,7 @@ Signature ecs_getEntitySignature(EID eid);
 CID ecs_getComponentID(Signature signature);
 SID ecs_registerSystem(CID *query, int query_size, void (*procedure)(EID));
 void ecs_reindexSystems(Signature dirty_components);
+void ecs_indexSystem(struct System *s);
 void ecs_callSystem(SID sid);
 Signature ecs_getComponentSignature(CID cid);
 
