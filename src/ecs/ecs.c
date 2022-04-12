@@ -3,11 +3,14 @@
 static Signature entity_signatures[MAX_ENTITIES];
 static int entity_count;
 static unsigned int component_count;
-static struct ComponentArray *registered_components[MAX_COMPONENTS];
+static struct PackedArray *registered_components[MAX_COMPONENTS];
 static EID entity_ID_queue[MAX_ENTITIES];
 static int next_eid_index;
 static int last_eid_index;
 static int available_eid_count;
+static struct System *registered_systems[MAX_SYSTEMS];
+static unsigned int system_count;
+static struct PackedArray *signature_ledger;
 
 void
 ecs_init(void)
@@ -25,6 +28,7 @@ ecs_init(void)
 		entity_ID_queue[last_eid_index] = i;
 		available_eid_count++;
 	}
+	signature_ledger = ds_PackedArray_init(MAX_ENTITIES, sizeof(Signature));
 
 	/* component system init */
 	component_count = 0;
@@ -36,12 +40,30 @@ ecs_init(void)
 void
 ecs_exit(void)
 {
-	int i;
+	unsigned int i;
+	struct System *s;
+
+	/* entity system free */
+	ds_PackedArray_free(&signature_ledger);
 
 	/* component system free */
 	for (i = 0; i < MAX_COMPONENTS; i++) {
 		if (registered_components[i] != NULL)
-			ecs_ComponentArray_free(&(registered_components[i]));
+			ds_PackedArray_free(&(registered_components[i]));
+	}
+
+	/* free systems */
+	for (i = 0; i < system_count; i++) {
+		s = registered_systems[i];
+		switch (s->hint) {
+		case LEDGER:
+			free(s->query_results);
+			break;
+		case SINGLE_COLUMN:
+		default:
+			break;
+		}
+		free(s);
 	}
 }
 
@@ -52,6 +74,7 @@ ecs_makeEntity(void)
 	next_eid_index = (next_eid_index + 1) % MAX_ENTITIES;
 	available_eid_count--;
 	entity_count++;
+	*(SID *)ds_PackedArray_addKey(signature_ledger, new_eid) = 0;
 	return new_eid;
 }
 
@@ -62,11 +85,11 @@ ecs_removeEntity(EID eid)
 
 	/* remove relevant components */
 	for (i = 0; i < component_count; i++) {
-		ecs_ComponentArray_remove(registered_components[i], eid);
+		ds_PackedArray_removeKey(registered_components[i], eid);
 	}
 
 	/* remove from systems' lists */
-	//TODO
+	ecs_reindexSystems(entity_signatures[eid]);
 
 	/* reset entity and place into ID queue */
 	entity_signatures[eid] = 0;
@@ -74,6 +97,8 @@ ecs_removeEntity(EID eid)
 	last_eid_index = (last_eid_index + 1) % MAX_ENTITIES;
 	entity_ID_queue[last_eid_index] = eid;
 	available_eid_count++;
+
+	ds_PackedArray_removeKey(signature_ledger, eid);
 
 	entity_count--;
 }
@@ -84,7 +109,7 @@ ecs_registerComponent(size_t component_size)
 	CID new_cid;
 
 	new_cid = component_count++;
-	registered_components[new_cid] = ecs_ComponentArray_init(component_size);
+	registered_components[new_cid] = ds_PackedArray_init(MAX_ENTITIES, component_size);
 
 	return new_cid;
 }
@@ -93,101 +118,133 @@ void *
 ecs_addComponentInstance(EID eid, CID cid)
 {
 	/* allocate memory for component */
-	ecs_ComponentArray_insert(registered_components[cid], eid);
+	ds_PackedArray_addKey(registered_components[cid], eid);
 
 	/* update signature for entity */
 	entity_signatures[eid] |= (1 << cid);
 
 	/* update systems' entity lists */
-	//TODO
+	ecs_reindexSystems(ecs_getComponentSignature(cid));
 	
-	return ecs_ComponentArray_get(registered_components[cid], eid);
+	return ds_PackedArray_getElement(registered_components[cid], eid);
 }
 
 void
 ecs_removeComponentInstance(EID eid, CID cid)
 {
 	/* remove component from memory */
-	ecs_ComponentArray_remove(registered_components[cid], eid);
+	ds_PackedArray_removeKey(registered_components[cid], eid);
 
 	/* update signature for entity */
 	entity_signatures[eid] &= ~(1 << cid);
 
 	/* remove EID from systems' lists */
-	//TODO
+	ecs_reindexSystems(ecs_getComponentSignature(cid));
 }
 
 void *
 ecs_getComponentInstance(EID eid, CID cid)
 {
-	return ecs_ComponentArray_get(registered_components[cid], eid);
+	return ds_PackedArray_getElement(registered_components[cid], eid);
 }
 
-
-struct ComponentArray *
-ecs_ComponentArray_init(size_t component_size)
+Signature
+ecs_getEntitySignature(EID eid)
 {
-	struct ComponentArray *ca;
+	return entity_signatures[eid];
+}
+
+Signature
+ecs_getComponentSignature(CID cid)
+{
+	return 1 << cid;
+}
+
+CID
+ecs_getComponentID(Signature signature)
+{
+	CID cid = 0;
+	while(signature != 1) {
+		signature = signature >> 1;
+		cid++;
+	}
+	return cid;
+}
+
+SID
+ecs_registerSystem(CID *query, int query_size, void (*procedure)(EID))
+{
+	struct System* s;
+	Signature new_signature = 0;
+	SID new_sid = system_count++;
+
+	/* generate signature */
+	for (int i = 0; i < query_size; i++) {
+		new_signature |= (1 << query[i]);
+	}
+
+	s = malloc(sizeof(struct System));
+	s->system_signature = new_signature;
+	s->entity_count = 0;
+	s->procedure = procedure;
+
+	registered_systems[new_sid] = s;
+
+	if (query_size == 1) {
+		s->hint = SINGLE_COLUMN;
+	} else {
+		s->hint = LEDGER;
+		s->query_results = malloc(sizeof(EID) * MAX_ENTITIES);
+	}
+
+	ecs_reindexSystems(s->system_signature);
+
+	return new_sid;
+}
+
+void
+ecs_reindexSystems(Signature dirty_components) {
+	SID sid;
+	struct System *s;
+	struct PackedArray *component;
 	int i;
 
-	ca = malloc(sizeof(struct ComponentArray));
-	ca->array = malloc(component_size * MAX_ENTITIES);
-	ca->entity_index_map = malloc(sizeof(int) * MAX_ENTITIES);
-	ca->index_entity_map = malloc(sizeof(int) * MAX_ENTITIES);
-	for (i = 0; i < MAX_ENTITIES; i++) {
-		ca->entity_index_map[i] = -1;
-		ca->index_entity_map[i] = -1;
+	printf("indexing triggered!\n");
+	printf("CID %u\n", dirty_components);
+
+	for (sid = 0; sid < system_count; sid++) {
+		s = registered_systems[sid];
+		printf("SID %u\n", s->system_signature);
+		if ((s->system_signature & dirty_components) == dirty_components) {
+			switch (s->hint) {
+			case SINGLE_COLUMN:
+				component = registered_components[ecs_getComponentID(s->system_signature)];
+				s->query_results = (EID *)component->index_key_map;
+				s->entity_count = component->element_count;
+				break;
+			case LEDGER:
+			default:
+				s->entity_count = 0;
+				for (i = 0; i < entity_count; i++) {
+					if ((((Signature *)signature_ledger->array)[i] & s->system_signature) == s->system_signature) {
+						s->query_results[s->entity_count++] = signature_ledger->index_key_map[i];
+					}
+				}
+				break;
+			}
+			printf("\tSystem indexed with %d results.\n", s->entity_count);
+		}
 	}
-	ca->component_size = component_size;
-	ca->component_count = 0;
-
-	return ca;
 }
 
 void
-ecs_ComponentArray_free(struct ComponentArray **ca_p)
+ecs_callSystem(SID sid)
 {
-	free((*ca_p)->array);
-	free((*ca_p)->entity_index_map);
-	free((*ca_p)->index_entity_map);
-	free((*ca_p));
-	*ca_p = NULL;
-}
+	int i;
+	struct System *s;
 
-void
-ecs_ComponentArray_insert(struct ComponentArray *ca, EID eid)
-{
-	ca->entity_index_map[eid] = ca->component_count;
-	ca->index_entity_map[ca->component_count] = eid;
-	ca->component_count++;
-}
-
-void *
-ecs_ComponentArray_get(struct ComponentArray *ca, EID eid)
-{
-	return ca->array + ca->component_size * ca->entity_index_map[eid];
-}
-
-void
-ecs_ComponentArray_remove(struct ComponentArray *ca, EID eid)
-{
-	if (ca->entity_index_map[eid] == -1) return;
-	char *origin = (char *)ca->array + ca->component_size * (ca->component_count - 1);
-	char *dest = (char *)ca->array + ca->component_size * (ca->entity_index_map[eid]);
-	size_t steps = ca->component_size / sizeof(char);
-	for (size_t i = 0; i < steps; i += sizeof(char)) {
-		*(dest + i) = *(origin + i);
+	s = registered_systems[sid];
+	for(i = 0; i < s->entity_count; i++) {
+		s->procedure(s->query_results[i]);
 	}
-
-	unsigned int eid_to_move;
-	int index_to_move_to;
-	eid_to_move = ca->index_entity_map[ca->component_count - 1];
-	index_to_move_to = ca->entity_index_map[eid];
-
-	ca->entity_index_map[eid_to_move] = index_to_move_to;
-	ca->entity_index_map[ca->component_count - 1] = -1;
-	ca->index_entity_map[index_to_move_to] = eid_to_move;
-	ca->index_entity_map[ca->component_count - 1] = -1;
-	ca->component_count--;
 }
-

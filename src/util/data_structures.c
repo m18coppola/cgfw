@@ -191,3 +191,74 @@ ds_ArrayQueue_dequeue(struct ArrayQueue *queue)
 	queue->size--;
 	return addr;
 }
+
+
+
+struct PackedArray *
+ds_PackedArray_init(int capacity, size_t element_size)
+{
+	struct PackedArray *pa;
+	int i;
+
+	pa = malloc(sizeof(struct PackedArray));
+	pa->array = malloc(sizeof(element_size) * capacity);
+	pa->key_index_map = malloc(sizeof(int) * capacity);
+	pa->index_key_map = malloc(sizeof(int) * capacity);
+	pa->element_size = element_size;
+	pa->element_count = 0;
+	pa->capacity = capacity;
+	for (i = 0; i < capacity; i++) {
+		pa->key_index_map[i] = -1;
+	}
+	return pa;
+}
+
+void
+ds_PackedArray_free(struct PackedArray **pa_p)
+{
+	free((*pa_p)->array);
+	free((*pa_p)->key_index_map);
+	free((*pa_p)->index_key_map);
+	free((*pa_p));
+	*pa_p = NULL;
+}
+
+void *
+ds_PackedArray_addKey(struct PackedArray *pa, unsigned int key)
+{
+	pa->key_index_map[key] = pa->element_count;
+	pa->index_key_map[pa->element_count] = key;
+	pa->element_count++;
+	return pa->array + pa->element_size * pa->key_index_map[key];
+}
+
+void *
+ds_PackedArray_getElement(struct PackedArray *pa, unsigned int key)
+{
+	if (pa->key_index_map[key] == -1 || key >= pa->capacity) return NULL;
+	return pa->array + pa->element_size * pa->key_index_map[key];
+}
+
+void
+ds_PackedArray_removeKey(struct PackedArray *pa, unsigned int key)
+{
+	int index_of_removed_key = pa->key_index_map[key];
+	int index_of_last_element = pa->element_count - 1;
+
+	if (pa->key_index_map[key] == -1) return;
+	char *origin = (char *)pa->array + pa->element_size * (pa->element_count - 1);
+	char *dest = (char *)pa->array + pa->element_size * (pa->key_index_map[key]);
+	size_t steps = pa->element_size / sizeof(char);
+	for (size_t i = 0; i < steps; i += sizeof(char)) {
+		*(dest + i) = *(origin + i);
+	}
+
+	unsigned int key_of_last_element = pa->index_key_map[index_of_last_element];
+	pa->key_index_map[key_of_last_element] = index_of_removed_key;
+	pa->index_key_map[index_of_removed_key] = key_of_last_element;
+
+	pa->key_index_map[key] = -1;
+	pa->index_key_map[index_of_last_element] = -1;
+	pa->element_count--;
+}
+

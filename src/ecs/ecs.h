@@ -6,35 +6,38 @@
 
 #define MAX_ENTITIES 10
 #define MAX_COMPONENTS 32
+#define MAX_SYSTEMS 32
 
 typedef unsigned int CID;
 typedef unsigned int EID;
 typedef unsigned int SID;
 typedef unsigned int Signature;
 
-struct ComponentArray
+enum CacheHint {SINGLE_COLUMN, LEDGER};
+
+struct System
 {
-	void *array;
-	int *entity_index_map;
-	int *index_entity_map;
-	size_t component_size;
-	unsigned int component_count;
+	Signature system_signature;
+	EID *query_results;
+	int entity_count;
+	void (*procedure)(EID);
+	enum CacheHint hint;
 };
+
 
 void ecs_init(void);
 void ecs_exit(void);
-EID ecs_makeEntity(void);
+EID ecs_makeEntity(void); //TODO update to priority queue to improve caching? Could cause slow entity removal...
 void ecs_removeEntity(EID eid);
 CID ecs_registerComponent(size_t component_size);
 void *ecs_addComponentInstance(EID eid, CID cid);
 void ecs_removeComponentInstance(EID eid, CID cid);
 void *ecs_getComponentInstance(EID eid, CID cid);
-
-/* private */
-struct ComponentArray *ecs_ComponentArray_init(size_t component_size);
-void ecs_ComponentArray_free(struct ComponentArray **ca_p);
-void ecs_ComponentArray_insert(struct ComponentArray *ca, EID eid);
-void *ecs_ComponentArray_get(struct ComponentArray *ca, EID eid);
-void ecs_ComponentArray_remove(struct ComponentArray *ca, EID eid);
+Signature ecs_getEntitySignature(EID eid);
+CID ecs_getComponentID(Signature signature);
+SID ecs_registerSystem(CID *query, int query_size, void (*procedure)(EID));
+void ecs_reindexSystems(Signature dirty_components);
+void ecs_callSystem(SID sid);
+Signature ecs_getComponentSignature(CID cid);
 
 #endif /* ECS_H_ */

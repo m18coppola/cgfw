@@ -28,10 +28,10 @@ run: main
 	$(info )
 	./build/app.bin
 
-checkleaks: main
+checkmem: main
 	$(info )
 	$(info ___STARTING EXECUTION___)
-	$(info ___CHECKLEAKS ENABLED___)
+	$(info ____CHECKMEM ENABLED____)
 	$(info ========================)
 	$(info )
 	valgrind --leak-check=full --track-origins=yes ./build/app.bin

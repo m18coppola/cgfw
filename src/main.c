@@ -1,6 +1,22 @@
 #include <stdio.h>
 #include <ecs/ecs.h>
 
+CID position;
+
+struct IntPair {
+	int x;
+	int y;
+};
+
+void
+doublePosImplementation(EID eid) {
+	struct IntPair *currIP;
+	printf("\tlocal sys: iter on eid:%u\n", eid);
+	currIP = (struct IntPair *)ecs_getComponentInstance(eid, position);
+	currIP->x *= 2;
+	currIP->y *= 2;
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -9,17 +25,13 @@ main (int argc, char *argv[])
 	printf("\tsuccess!\n");
 
 	printf("registering int pair component...\n");
-	struct IntPair {
-		int x;
-		int y;
-	};
-	CID position = ecs_registerComponent(sizeof(struct IntPair));
+	position = ecs_registerComponent(sizeof(struct IntPair));
 	printf("\tposition CID: %u\n", position);
 
 
 
 
-	printf("making 3 entites...\n");
+	printf("making 3 entities...\n");
 	EID my_entities[3];
 	for (int i = 0; i < 3; i++) {
 		my_entities[i] = ecs_makeEntity();
@@ -42,13 +54,43 @@ main (int argc, char *argv[])
 		printf("ID: %u: %d, %d\n", my_entities[i], currIP->x, currIP->y);
 	}
 
+	printf("registering system...\n");
+	SID doubleSys = ecs_registerSystem(&position, 1, doublePosImplementation);
 
-	ecs_removeComponentInstance(my_entities[0], position);
+	printf("calling system...\n");
+	ecs_callSystem(doubleSys);
 
 
-	printf("freeing entites...\n");
-	for (int i = 0; i < 3; i++) {
-		ecs_removeEntity(my_entities[i]);
+	printf("print content...\n");
+	for(int i = 0; i < 3; i++) {
+		struct IntPair *currIP;
+		currIP = (struct IntPair *)ecs_getComponentInstance(my_entities[i], position);
+		printf("ID: %u: %d, %d\n", my_entities[i], currIP->x, currIP->y);
+	}
+
+
+	printf("remove eid:1 component...\n");
+	ecs_removeComponentInstance(my_entities[1], position);
+
+	printf("print content...\n");
+	for(int i = 0; i < 3; i++) {
+			struct IntPair *currIP;
+			currIP = (struct IntPair *)ecs_getComponentInstance(my_entities[i], position);
+			if(currIP != NULL)
+			printf("ID: %u: %d, %d\n", my_entities[i], currIP->x, currIP->y);
+	}
+
+	printf("calling system...\n");
+	ecs_callSystem(doubleSys);
+
+	printf("print content...\n");
+	for(int i = 0; i < 3; i++) {
+		if(i != 1) {
+			struct IntPair *currIP;
+			currIP = (struct IntPair *)ecs_getComponentInstance(my_entities[i], position);
+			if(currIP != NULL)
+			printf("ID: %u: %d, %d\n", my_entities[i], currIP->x, currIP->y);
+		}
 	}
 
 	printf("exiting ECS...\n");
@@ -56,3 +98,4 @@ main (int argc, char *argv[])
 
 	return 0;
 }
+
