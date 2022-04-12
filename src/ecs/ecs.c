@@ -172,7 +172,7 @@ ecs_getComponentID(Signature signature)
 }
 
 SID
-ecs_registerSystem(CID *query, int query_size, void (*procedure)(EID))
+ecs_registerSystem(CID *query, int query_size, void (*procedure)(EID, CID *))
 {
 	struct System* s;
 	Signature new_signature = 0;
@@ -187,6 +187,7 @@ ecs_registerSystem(CID *query, int query_size, void (*procedure)(EID))
 	s->system_signature = new_signature;
 	s->entity_count = 0;
 	s->procedure = procedure;
+	s->query = query;
 
 	registered_systems[new_sid] = s;
 
@@ -247,6 +248,6 @@ ecs_callSystem(SID sid)
 
 	s = registered_systems[sid];
 	for(i = 0; i < s->entity_count; i++) {
-		s->procedure(s->query_results[i]);
+		s->procedure(s->query_results[i], s->query);
 	}
 }
