@@ -18,8 +18,8 @@ main.o: src/main.c
 data_structures.o: src/util/data_structures.c
 	$(CC) src/util/data_structures.c $(LIBS) $(FLAGS) $(INCLUDE) -c -o build/objects/data_structures.o
 
-ecs.o: src/ecs/ecs.c
-	$(CC) src/ecs/ecs.c $(LIBS) $(FLAGS) $(INCLUDE) -c -o build/objects/ecs.o
+ecs.o: src/ecs.c
+	$(CC) src/ecs.c $(LIBS) $(FLAGS) $(INCLUDE) -c -o build/objects/ecs.o
 
 run: main
 	$(info )
