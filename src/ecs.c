@@ -1,4 +1,4 @@
-#include <ecs/ecs.h>
+#include <ecs.h>
 
 static Signature entity_signatures[MAX_ENTITIES];
 static int entity_count;
